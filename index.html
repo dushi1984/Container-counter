@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Container Counter</title>
+    <title>Cumulative Container Counter</title>
     <style>
         :root {
             --primary: #2563eb;
@@ -11,6 +11,7 @@
             --bg: #f1f5f9;
             --card: #ffffff;
             --text: #0f172a;
+            --accent: #f59e0b;
         }
 
         body {
@@ -28,53 +29,59 @@
         header {
             background: var(--text);
             color: white;
-            padding: 20px;
+            padding: 15px;
             text-align: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
             z-index: 10;
+            position: relative;
         }
 
-        .gt-label { font-size: 0.9rem; opacity: 0.8; letter-spacing: 1px; }
-        .gt-value { font-size: 3.5rem; font-weight: 900; line-height: 1; margin: 5px 0; }
+        .gt-label { font-size: 0.8rem; opacity: 0.7; letter-spacing: 1px; font-weight: 600; }
+        .gt-value { font-size: 3rem; font-weight: 900; line-height: 1; margin: 5px 0; color: var(--accent); }
 
         /* List Area */
         #list-container {
             flex: 1;
             overflow-y: auto;
             padding: 15px;
-            padding-bottom: 180px; /* Space for fixed bottom controls */
+            padding-bottom: 160px; /* Space for fixed bottom controls */
         }
 
         /* The Single Row Slice Design */
         .slice-row {
             background: var(--card);
-            border-radius: 16px;
-            padding: 15px;
-            margin-bottom: 12px;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 10px;
             display: grid;
-            grid-template-columns: 0.8fr 1.5fr 1fr;
+            grid-template-columns: 0.7fr 1fr 1.2fr; /* Serial | Count | Cumulative */
             align-items: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            border-left: 6px solid var(--primary);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            border-left: 5px solid var(--primary);
         }
 
-        .cell { text-align: center; }
+        .cell { text-align: center; border-right: 1px solid #f1f5f9; }
+        .cell:last-child { border-right: none; }
         
         .cell-label { 
-            font-size: 0.75rem; 
+            font-size: 0.7rem; 
             color: #64748b; 
             text-transform: uppercase; 
             font-weight: 700;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
 
         .cell-value { 
-            font-size: 1.8rem; 
+            font-size: 1.6rem; 
             font-weight: 800; 
             color: var(--text); 
         }
 
-        .slice-total-val { color: var(--primary); }
+        /* Highlight the cumulative total */
+        .cumulative-val { 
+            color: var(--primary); 
+            font-size: 1.8rem;
+        }
 
         /* Fixed Bottom Controls */
         .controls {
@@ -96,14 +103,15 @@
             font-weight: 800;
             cursor: pointer;
             touch-action: manipulation;
+            transition: transform 0.1s;
         }
 
         .btn-count {
             flex: 2;
             background-color: var(--success);
             color: white;
-            font-size: 1.5rem;
-            padding: 25px 0;
+            font-size: 1.4rem;
+            padding: 20px 0;
             box-shadow: 0 4px 0 #15803d;
         }
 
@@ -114,42 +122,48 @@
             font-size: 1rem;
             padding: 0 10px;
             box-shadow: 0 4px 0 #1d4ed8;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            line-height: 1.2;
         }
 
         .btn-reset {
             position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255,255,255,0.2);
+            top: 15px;
+            right: 15px;
+            background: rgba(255,255,255,0.15);
             color: white;
-            font-size: 0.8rem;
-            padding: 5px 10px;
-            border-radius: 6px;
+            font-size: 0.75rem;
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255,255,255,0.3);
         }
 
-        button:active { transform: translateY(4px); box-shadow: none; }
+        button:active { transform: translateY(4px); box-shadow: none !important; }
     </style>
 </head>
 <body>
 
 <header>
-    <div class="gt-label">GRAND TOTAL [G.T]</div>
+    <div class="gt-label">CONTAINER GRAND TOTAL</div>
     <div class="gt-value" id="grandTotal">0</div>
-    <button class="btn-reset" onclick="resetAll()">RESET ALL</button>
+    <button class="btn-reset" onclick="resetAll()">RESET</button>
 </header>
 
 <div id="list-container">
-    <!-- Rows will be injected here -->
+    <!-- Rows injected here -->
 </div>
 
 <div class="controls">
     <button class="btn-new" onclick="addNewSlice()">NEW<br>SLICE</button>
-    <button class="btn-count" onclick="addToCurrentSlice()">+ COUNT</button>
+    <button class="btn-count" onclick="addToCurrentSlice()">+ ADD CARTON</button>
 </div>
 
 <script>
     // Data Structure: Array of objects { id, count }
-    let slices = JSON.parse(localStorage.getItem('garmentSlices')) || [];
+    let slices = JSON.parse(localStorage.getItem('garmentSlicesV2')) || [];
     
     // Ensure at least one slice exists on start
     if (slices.length === 0) slices.push({ id: Date.now(), count: 0 });
@@ -158,7 +172,7 @@
     const gtDisplay = document.getElementById('grandTotal');
 
     function save() {
-        localStorage.setItem('garmentSlices', JSON.stringify(slices));
+        localStorage.setItem('garmentSlicesV2', JSON.stringify(slices));
         render();
     }
 
@@ -169,13 +183,14 @@
     }
 
     function addNewSlice() {
+        // Prevent empty slices if desired, but usually better to allow switching
         slices.push({ id: Date.now(), count: 0 });
         save();
         scrollToBottom();
     }
 
     function resetAll() {
-        if(confirm("Clear all data?")) {
+        if(confirm("Are you sure you want to delete all data?")) {
             slices = [{ id: Date.now(), count: 0 }];
             save();
         }
@@ -189,10 +204,11 @@
 
     function render() {
         container.innerHTML = '';
-        let grandTotal = 0;
+        let runningTotal = 0;
 
         slices.forEach((slice, index) => {
-            grandTotal += slice.count;
+            // Update running total for this row
+            runningTotal += slice.count;
             
             const row = document.createElement('div');
             row.className = 'slice-row';
@@ -203,18 +219,19 @@
                     <div class="cell-value">${index + 1}</div>
                 </div>
                 <div class="cell">
-                    <div class="cell-label">Count</div>
+                    <div class="cell-label">Slice Count</div>
                     <div class="cell-value">${slice.count}</div>
                 </div>
                 <div class="cell">
-                    <div class="cell-label">Slice Total</div>
-                    <div class="cell-value slice-total-val">${slice.count}</div>
+                    <div class="cell-label">Total Till Now</div>
+                    <div class="cell-value cumulative-val">${runningTotal}</div>
                 </div>
             `;
             container.appendChild(row);
         });
 
-        gtDisplay.innerText = grandTotal;
+        // Update Header Grand Total
+        gtDisplay.innerText = runningTotal;
     }
 
     // Initial Render
